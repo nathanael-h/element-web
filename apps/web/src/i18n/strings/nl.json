@@ -1101,8 +1101,6 @@
         "upload_file": "Bestand uploaden"
     },
     "labs": {
-        "automatic_debug_logs": "Automatisch foutenlogboek versturen bij een fout",
-        "automatic_debug_logs_decryption": "Automatisch foutopsporingslogboeken versturen bij decoderingsfouten",
         "beta_feature": "Dit is een bètafunctie",
         "beta_feedback_leave_button": "Om de beta te verlaten, ga naar je instellingen.",
         "beta_feedback_title": "%(featureName)s Bèta-feedback",

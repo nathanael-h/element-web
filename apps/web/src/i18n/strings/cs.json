@@ -1495,8 +1495,6 @@
     },
     "labs": {
         "ask_to_join": "Umožnit požádat o vstup",
-        "automatic_debug_logs": "Automaticky odesílat ladící protokoly při jakékoli chybě",
-        "automatic_debug_logs_decryption": "Automaticky odesílat ladící protokoly při chybách dešifrování",
         "beta_description": "Co se chystá pro %(brand)s? Experimentální funkce jsou nejlepším způsobem, jak se dostat k novým věcem v raném stádiu, vyzkoušet nové funkce a pomoci je formovat ještě před jejich spuštěním.",
         "beta_feature": "Jedná se o funkci ve vývoji",
         "beta_feedback_leave_button": "Chcete-li opustit beta verzi, jděte do nastavení.",

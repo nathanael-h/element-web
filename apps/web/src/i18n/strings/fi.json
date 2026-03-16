@@ -1235,8 +1235,6 @@
         "upload_file": "Lähetä tiedosto"
     },
     "labs": {
-        "automatic_debug_logs": "Lähetä vianjäljityslokit automaattisesti minkä tahansa virheen tapahtuessa",
-        "automatic_debug_logs_decryption": "Lähetä vianjäljityslokit automaattisesti salauksen purkuun liittyvien virheiden tapahtuessa",
         "beta_description": "Mitä uutta %(brand)s sisältää seuraavaksi? Laboratoriot ovat paras tapa tutustua asioihin aikaisin, testata uusia ominaisuuksia ja auttaa muokkaamaan niitä ennen julkaisua.",
         "beta_feature": "Tämä on beetaominaisuus",
         "beta_feedback_leave_button": "Poistu beetasta asetuksista.",
