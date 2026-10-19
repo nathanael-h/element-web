@@ -38,49 +38,57 @@ import ResizeNotifier from "../../utils/ResizeNotifier";
 import { ScopedRoomContextProvider } from "../../contexts/ScopedRoomContext.tsx";
 import type { RoomContextType } from "../../contexts/RoomContext.ts";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
+import PosthogTrackers from "../../PosthogTrackers";
 
 vi.mock("../../utils/Feedback");
 
 describe("ThreadPanel", () => {
     describe("Header", () => {
-        it("expect that All filter for ThreadPanelHeader properly renders Show: All threads", () => {
+        it("renders the filter tabs", () => {
             const { asFragment } = render(
                 <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />,
             );
             expect(asFragment()).toMatchSnapshot();
         });
 
-        it("expect that My filter for ThreadPanelHeader properly renders Show: My threads", () => {
-            const { asFragment } = render(
-                <ThreadPanelHeader filterOption={ThreadFilterType.My} setFilterOption={() => undefined} />,
-            );
-            expect(asFragment()).toMatchSnapshot();
+        it.each([
+            { filterOption: ThreadFilterType.All, selected: "All threads", unselected: "My threads" },
+            { filterOption: ThreadFilterType.My, selected: "My threads", unselected: "All threads" },
+        ])("marks the $selected tab as selected", ({ filterOption, selected, unselected }) => {
+            render(<ThreadPanelHeader filterOption={filterOption} setFilterOption={() => undefined} />);
+            expect(screen.getByRole("tablist", { name: "Filter threads" })).toBeInTheDocument();
+            expect(screen.getByRole("tab", { name: selected, selected: true })).toBeInTheDocument();
+            expect(screen.getByRole("tab", { name: unselected, selected: false })).toBeInTheDocument();
         });
 
-        it("expect that ThreadPanelHeader properly opens a context menu when clicked on the button", () => {
-            const { container } = render(
-                <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />,
-            );
-            const found = container.querySelector(".mx_ThreadPanel_dropdown");
-            expect(found).toBeTruthy();
-            expect(screen.queryByRole("menu")).toBeFalsy();
-            fireEvent.click(found!);
-            expect(screen.queryByRole("menu")).toBeTruthy();
-        });
-
-        it("expect that ThreadPanelHeader has the correct option selected in the context menu", () => {
-            const { container } = render(
-                <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />,
-            );
-            fireEvent.click(container.querySelector(".mx_ThreadPanel_dropdown")!);
-            const found = screen.queryAllByRole("menuitemradio");
-            expect(found).toHaveLength(2);
-            const foundButton = screen.queryByRole("menuitemradio", { checked: true });
-            expect(foundButton?.textContent).toEqual(
-                `${_t("threads|all_threads")}${_t("threads|all_threads_description")}`,
-            );
-            expect(foundButton).toMatchSnapshot();
-        });
+        it.each([
+            {
+                filterOption: ThreadFilterType.My,
+                tabName: "All threads",
+                expectedFilter: ThreadFilterType.All,
+                index: 0,
+            },
+            {
+                filterOption: ThreadFilterType.All,
+                tabName: "My threads",
+                expectedFilter: ThreadFilterType.My,
+                index: 1,
+            },
+        ])(
+            "selects and tracks the $tabName filter when its tab is clicked",
+            ({ filterOption, tabName, expectedFilter, index }) => {
+                const trackSpy = vi.spyOn(PosthogTrackers, "trackInteraction");
+                const setFilterOption = vi.fn();
+                render(<ThreadPanelHeader filterOption={filterOption} setFilterOption={setFilterOption} />);
+                fireEvent.click(screen.getByRole("tab", { name: tabName }));
+                expect(setFilterOption).toHaveBeenCalledWith(expectedFilter);
+                expect(trackSpy).toHaveBeenCalledWith(
+                    "WebRightPanelThreadPanelFilterDropdown",
+                    expect.objectContaining({ type: "click" }),
+                    index,
+                );
+            },
+        );
 
         it("sends an unthreaded read receipt when the Mark All Threads Read button is clicked", async () => {
             const mockClient = createTestClient();
@@ -161,20 +169,8 @@ describe("ThreadPanel", () => {
         });
 
         function toggleThreadFilter(container: HTMLElement, newFilter: ThreadFilterType) {
-            fireEvent.click(container.querySelector(".mx_ThreadPanel_dropdown")!);
-            const found = screen.queryAllByRole("menuitemradio");
-            expect(found).toHaveLength(2);
-
-            const allThreadsContent = `${_t("threads|all_threads")}${_t("threads|all_threads_description")}`;
-            const myThreadsContent = `${_t("threads|my_threads")}${_t("threads|my_threads_description")}`;
-
-            const allThreadsOption = found.find((it) => it.textContent === allThreadsContent);
-            const myThreadsOption = found.find((it) => it.textContent === myThreadsContent);
-            expect(allThreadsOption).toBeTruthy();
-            expect(myThreadsOption).toBeTruthy();
-
-            const toSelect = newFilter === ThreadFilterType.My ? myThreadsOption : allThreadsOption;
-            fireEvent.click(toSelect!);
+            const name = newFilter === ThreadFilterType.My ? "My threads" : "All threads";
+            fireEvent.click(getByRole(container, "tab", { name }));
         }
 
         type EventData = { sender: string | null; content: string | null };
@@ -237,7 +233,7 @@ describe("ThreadPanel", () => {
                 expect(events[1]).toEqual(toEventData(mixedThread.rootEvent));
                 expect(events[2]).toEqual(toEventData(ownThread.rootEvent));
             });
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_ThreadPanel_dropdown")).toBeTruthy());
+            await waitFor(() => expect(getByRole(renderResult.container, "tablist")).toBeInTheDocument());
             toggleThreadFilter(renderResult.container, ThreadFilterType.My);
             await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
             await waitFor(() => {
@@ -283,7 +279,7 @@ describe("ThreadPanel", () => {
                 expect(events).toHaveLength(1);
                 expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
             });
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_ThreadPanel_dropdown")).toBeTruthy());
+            await waitFor(() => expect(getByRole(renderResult.container, "tablist")).toBeInTheDocument());
             toggleThreadFilter(renderResult.container, ThreadFilterType.My);
             await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
             await waitFor(() => {
@@ -297,6 +293,39 @@ describe("ThreadPanel", () => {
                 expect(events).toHaveLength(1);
                 expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
             });
+        });
+
+        it("shows a spinner rather than the empty state while threads are loading", () => {
+            vi.mocked(room.fetchRoomThreads).mockReturnValue(new Promise(() => {}));
+            const { container } = render(
+                <TestThreadPanel />,
+                clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
+            );
+            expect(container.querySelector(".mx_Spinner")).toBeInTheDocument();
+            expect(screen.queryByText(_t("threads|empty_title"))).not.toBeInTheDocument();
+        });
+
+        it("shows the empty state without tabs when the room has no threads", async () => {
+            render(<TestThreadPanel />, clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance));
+            await waitFor(() => expect(screen.getByText(_t("threads|empty_title"))).toBeInTheDocument());
+            expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+            expect(screen.queryByRole("tabpanel", { name: "All threads" })).not.toBeInTheDocument();
+        });
+
+        it("labels the thread list with the selected tab", async () => {
+            const thread = mkThread({
+                room,
+                client: mockClient,
+                authorId: SENDER,
+                participantUserIds: [mockClient.getUserId()!],
+            });
+            vi.spyOn(mockClient, "fetchRoomEvent").mockResolvedValue(thread.rootEvent.event);
+            room.threadsTimelineSets[0]!.addLiveEvent(thread.rootEvent, { addToState: true });
+
+            render(<TestThreadPanel />, clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance));
+            await waitFor(() => expect(screen.getByRole("tabpanel", { name: "All threads" })).toBeInTheDocument());
+            fireEvent.click(screen.getByRole("tab", { name: "My threads" }));
+            await waitFor(() => expect(screen.getByRole("tabpanel", { name: "My threads" })).toBeInTheDocument());
         });
     });
 });

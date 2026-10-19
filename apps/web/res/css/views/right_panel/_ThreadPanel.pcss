@@ -14,42 +14,32 @@ Please see LICENSE files in the repository root for full details.
         height: 64px;
         display: flex;
         box-sizing: border-box;
-        padding: 16px;
+        /* No vertical padding: the tabs need the full 64px height to avoid overflowing */
+        padding: 0 var(--cpd-space-4x);
         align-items: center;
         border-bottom: 1px solid var(--cpd-color-gray-400);
 
-        .mx_AccessibleButton {
-            font-size: 12px;
-            color: $secondary-content;
+        .mx_ThreadPanel_tabs {
+            /* Align tabs to bottom edge of header so the underline sits on the border */
+            align-self: flex-end;
+            /* Override NavBar's default block margin and bottom border; the header draws its own border */
+            margin: 0;
+            border-block-end: none;
         }
 
-        .mx_ThreadPanel_vertical_separator {
-            height: 28px;
-            margin-left: var(--cpd-space-3x);
-            margin-right: var(--cpd-space-2x);
-            border-left: 1px solid var(--cpd-color-gray-400);
+        /* Mark-all-read action, pushed to the end of the header after the tabs */
+        .mx_ThreadPanel_markAllRead {
+            align-self: center;
+            margin-inline-start: auto;
         }
+    }
 
-        .mx_ThreadPanel_dropdown {
-            font: var(--cpd-font-body-sm-regular);
-            padding: 3px var(--cpd-space-1x) 3px var(--cpd-space-2x);
-            border-radius: 4px;
-            line-height: 1.5;
-            user-select: none;
-
-            &:hover,
-            &[aria-expanded="true"] {
-                background: $quinary-content;
-            }
-
-            svg {
-                margin-left: 2px;
-                height: 20px;
-                width: 20px;
-                display: inline-block;
-                vertical-align: bottom;
-            }
-        }
+    /* Wrapper around the thread list; lets the timeline shrink and scroll inside the card */
+    .mx_ThreadPanel_tabPanel {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
     }
 
     .mx_AutoHideScrollbar,
@@ -136,43 +126,6 @@ Please see LICENSE files in the repository root for full details.
         padding-right: 8px;
 
         .mx_AccessibleButton_kind_link_inline {
-            color: $secondary-content;
-        }
-    }
-}
-
-.mx_ContextualMenu_wrapper {
-    .mx_ThreadPanel_Header_FilterOptionItem {
-        display: flex;
-        flex-grow: 1;
-        justify-content: space-between;
-        flex-direction: column;
-        padding: 10px 20px 10px 30px;
-        position: relative;
-
-        &:hover {
-            background-color: $event-selected-color;
-        }
-
-        &[aria-checked="true"] {
-            span:first-child {
-                margin-left: -20px;
-            }
-
-            svg {
-                width: 12px;
-                height: 12px;
-                margin-right: 8px;
-                color: $primary-content;
-                display: inline-block;
-                vertical-align: middle;
-                position: absolute;
-                top: 14px;
-                left: 10px;
-            }
-        }
-
-        span:last-child {
             color: $secondary-content;
         }
     }

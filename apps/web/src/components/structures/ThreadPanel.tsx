@@ -8,24 +8,21 @@ Please see LICENSE files in the repository root for full details.
 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { type EventTimelineSet, type Room, Thread } from "matrix-js-sdk/src/matrix";
-import { IconButton, Tooltip } from "@vector-im/compound-web";
+import { IconButton, NavBar, NavItem, Tooltip } from "@vector-im/compound-web";
 import { logger } from "matrix-js-sdk/src/logger";
-import { ThreadsIcon, CheckIcon, ChevronDownIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import { ThreadsIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import MarkAllThreadsReadIcon from "../../../res/img/element-icons/check-all.svg?react";
 import BaseCard from "../views/right_panel/BaseCard";
 import type ResizeNotifier from "../../utils/ResizeNotifier";
 import MatrixClientContext, { useMatrixClientContext } from "../../contexts/MatrixClientContext";
 import { _t } from "../../languageHandler";
-import { ContextMenuButton } from "../../accessibility/context_menu/ContextMenuButton";
-import ContextMenu, { ChevronFace, MenuItemRadio, useContextMenu } from "./ContextMenu";
 import RoomContext, { TimelineRenderingType } from "../../contexts/RoomContext";
 import TimelinePanel from "./TimelinePanel";
 import { Layout } from "../../settings/enums/Layout";
 import { type RoomPermalinkCreator } from "../../utils/permalinks/Permalinks";
 import Measured from "../views/elements/Measured";
 import PosthogTrackers from "../../PosthogTrackers";
-import { type ButtonEvent } from "../views/elements/AccessibleButton";
 import Spinner from "../views/elements/Spinner";
 import { clearRoomNotification } from "../../utils/notifications";
 import EmptyState from "../views/right_panel/EmptyState";
@@ -44,25 +41,10 @@ export enum ThreadFilterType {
     All,
 }
 
-type ThreadPanelHeaderOption = {
-    label: string;
-    description: string;
-    key: ThreadFilterType;
-};
-
-export const ThreadPanelHeaderFilterOptionItem: React.FC<
-    ThreadPanelHeaderOption & {
-        onClick: () => void;
-        isSelected: boolean;
-    }
-> = ({ label, description, onClick, isSelected }) => {
-    return (
-        <MenuItemRadio active={isSelected} className="mx_ThreadPanel_Header_FilterOptionItem" onClick={onClick}>
-            {isSelected ? <CheckIcon /> : null}
-            <span>{label}</span>
-            <span>{description}</span>
-        </MenuItemRadio>
-    );
+const THREAD_PANEL_TABPANEL_ID = "mx_ThreadPanel_panel";
+const THREAD_PANEL_TAB_IDS: Record<ThreadFilterType, string> = {
+    [ThreadFilterType.All]: "mx_ThreadPanel_tab_all",
+    [ThreadFilterType.My]: "mx_ThreadPanel_tab_my",
 };
 
 export const ThreadPanelHeader: React.FC<{
@@ -71,44 +53,6 @@ export const ThreadPanelHeader: React.FC<{
 }> = ({ filterOption, setFilterOption }) => {
     const mxClient = useMatrixClientContext();
     const roomContext = useScopedRoomContext("room");
-    const [menuDisplayed, button, openMenu, closeMenu] = useContextMenu();
-    const options: readonly ThreadPanelHeaderOption[] = [
-        {
-            label: _t("threads|all_threads"),
-            description: _t("threads|all_threads_description"),
-            key: ThreadFilterType.All,
-        },
-        {
-            label: _t("threads|my_threads"),
-            description: _t("threads|my_threads_description"),
-            key: ThreadFilterType.My,
-        },
-    ];
-
-    const value = options.find((option) => option.key === filterOption);
-    const contextMenuOptions = options.map((opt) => (
-        <ThreadPanelHeaderFilterOptionItem
-            key={opt.key}
-            label={opt.label}
-            description={opt.description}
-            onClick={() => {
-                setFilterOption(opt.key);
-                closeMenu();
-            }}
-            isSelected={opt === value}
-        />
-    ));
-    const contextMenu = menuDisplayed ? (
-        <ContextMenu
-            top={108}
-            right={33}
-            onFinished={closeMenu}
-            chevronFace={ChevronFace.Top}
-            wrapperClassName="mx_BaseCard_header_title"
-        >
-            {contextMenuOptions}
-        </ContextMenu>
-    ) : null;
 
     const onMarkAllThreadsReadClick = React.useCallback(
         (e: React.MouseEvent) => {
@@ -131,25 +75,36 @@ export const ThreadPanelHeader: React.FC<{
 
     return (
         <div className="mx_ThreadPanelHeader">
+            <NavBar className="mx_ThreadPanel_tabs" role="tablist" aria-label={_t("threads|filter_tabs_label")}>
+                {/* The filter tabs reuse the old dropdown's analytics name; the index tells them apart */}
+                <NavItem
+                    id={THREAD_PANEL_TAB_IDS[ThreadFilterType.All]}
+                    aria-controls={THREAD_PANEL_TABPANEL_ID}
+                    active={filterOption === ThreadFilterType.All}
+                    onClick={(ev: React.MouseEvent<HTMLButtonElement>) => {
+                        setFilterOption(ThreadFilterType.All);
+                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 0);
+                    }}
+                >
+                    {_t("threads|all_threads")}
+                </NavItem>
+                <NavItem
+                    id={THREAD_PANEL_TAB_IDS[ThreadFilterType.My]}
+                    aria-controls={THREAD_PANEL_TABPANEL_ID}
+                    active={filterOption === ThreadFilterType.My}
+                    onClick={(ev: React.MouseEvent<HTMLButtonElement>) => {
+                        setFilterOption(ThreadFilterType.My);
+                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 1);
+                    }}
+                >
+                    {_t("threads|my_threads")}
+                </NavItem>
+            </NavBar>
             <Tooltip label={_t("threads|mark_all_read")}>
-                <IconButton onClick={onMarkAllThreadsReadClick} size="28px">
+                <IconButton onClick={onMarkAllThreadsReadClick} size="28px" className="mx_ThreadPanel_markAllRead">
                     <MarkAllThreadsReadIcon height={20} width={20} />
                 </IconButton>
             </Tooltip>
-            <div className="mx_ThreadPanel_vertical_separator" />
-            <ContextMenuButton
-                className="mx_ThreadPanel_dropdown"
-                ref={button}
-                isExpanded={menuDisplayed}
-                onClick={(ev: ButtonEvent) => {
-                    openMenu();
-                    PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev);
-                }}
-            >
-                {`${_t("threads|show_thread_filter")} ${value?.label}`}
-                <ChevronDownIcon />
-            </ContextMenuButton>
-            {contextMenu}
         </div>
     );
 };
@@ -206,42 +161,51 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
             >
                 {hasThreads && <ThreadPanelHeader filterOption={filterOption} setFilterOption={setFilterOption} />}
                 <Measured sensor={card} onMeasurement={setNarrow} />
-                {timelineSet ? (
-                    <EventPresentationContextProvider layout={Layout.Group}>
-                        <TimelinePanel
-                            key={filterOption + ":" + (timelineSet.getFilter()?.filterId ?? roomId)}
-                            ref={timelinePanel}
-                            showReadReceipts={false} // No RR support in thread's list
-                            manageReadReceipts={false} // No RR support in thread's list
-                            manageReadMarkers={false} // No RM support in thread's list
-                            sendReadReceiptOnLoad={false} // No RR support in thread's list
-                            timelineSet={timelineSet}
-                            showUrlPreview={false} // No URL previews at the threads list level
-                            empty={
-                                <EmptyState
-                                    Icon={ThreadsIcon}
-                                    title={_t("threads|empty_title")}
-                                    description={_t("threads|empty_description", {
-                                        replyInThread: _t("action|reply_in_thread"),
-                                    })}
-                                />
-                            }
-                            alwaysShowTimestamps={true}
-                            layout={Layout.Group}
-                            hideThreadedMessages={false}
-                            hidden={false}
-                            showReactions={false}
-                            className="mx_RoomView_messagePanel"
-                            membersLoaded={true}
-                            permalinkCreator={permalinkCreator}
-                            disableGrouping={true}
-                        />
-                    </EventPresentationContextProvider>
-                ) : (
-                    <div className="mx_AutoHideScrollbar">
-                        <Spinner />
-                    </div>
-                )}
+                {/* Keep the timeline mounted even with no threads so that new ones show up live.
+                    It is only a tab panel when the header with the filter tabs is shown. */}
+                <div
+                    id={hasThreads ? THREAD_PANEL_TABPANEL_ID : undefined}
+                    role={hasThreads ? "tabpanel" : undefined}
+                    aria-labelledby={hasThreads ? THREAD_PANEL_TAB_IDS[filterOption] : undefined}
+                    className="mx_ThreadPanel_tabPanel"
+                >
+                    {timelineSet ? (
+                        <EventPresentationContextProvider layout={Layout.Group}>
+                            <TimelinePanel
+                                key={filterOption + ":" + (timelineSet.getFilter()?.filterId ?? roomId)}
+                                ref={timelinePanel}
+                                showReadReceipts={false} // No RR support in thread's list
+                                manageReadReceipts={false} // No RR support in thread's list
+                                manageReadMarkers={false} // No RM support in thread's list
+                                sendReadReceiptOnLoad={false} // No RR support in thread's list
+                                timelineSet={timelineSet}
+                                showUrlPreview={false} // No URL previews at the threads list level
+                                empty={
+                                    <EmptyState
+                                        Icon={ThreadsIcon}
+                                        title={_t("threads|empty_title")}
+                                        description={_t("threads|empty_description", {
+                                            replyInThread: _t("action|reply_in_thread"),
+                                        })}
+                                    />
+                                }
+                                alwaysShowTimestamps={true}
+                                layout={Layout.Group}
+                                hideThreadedMessages={false}
+                                hidden={false}
+                                showReactions={false}
+                                className="mx_RoomView_messagePanel"
+                                membersLoaded={true}
+                                permalinkCreator={permalinkCreator}
+                                disableGrouping={true}
+                            />
+                        </EventPresentationContextProvider>
+                    ) : (
+                        <div className="mx_AutoHideScrollbar">
+                            <Spinner />
+                        </div>
+                    )}
+                </div>
             </BaseCard>
         </ScopedRoomContextProvider>
     );
