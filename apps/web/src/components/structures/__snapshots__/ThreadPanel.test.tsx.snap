@@ -23,10 +23,10 @@ exports[`ThreadPanel > Header > renders the filter tabs 1`] = `
             aria-controls="mx_ThreadPanel_panel"
             aria-selected="true"
             class="_nav-item"
-            id="mx_ThreadPanel_tab_all"
+            id="mx_ThreadPanel_tab_my"
             role="tab"
           >
-            All threads
+            My threads
           </button>
         </li>
         <li
@@ -37,10 +37,10 @@ exports[`ThreadPanel > Header > renders the filter tabs 1`] = `
             aria-controls="mx_ThreadPanel_panel"
             aria-selected="false"
             class="_nav-item"
-            id="mx_ThreadPanel_tab_my"
+            id="mx_ThreadPanel_tab_other"
             role="tab"
           >
-            My threads
+            Other threads
           </button>
         </li>
       </ul>

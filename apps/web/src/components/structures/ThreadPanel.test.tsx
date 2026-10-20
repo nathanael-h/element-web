@@ -18,6 +18,7 @@ import {
     Room,
     FeatureSupport,
     Thread,
+    ThreadEvent,
 } from "matrix-js-sdk/src/matrix";
 import {
     clientAndSDKContextRenderOptions,
@@ -29,7 +30,8 @@ import {
 } from "test-utils";
 import { mkThread } from "test-utils/threads";
 
-import ThreadPanel, { ThreadFilterType, ThreadPanelHeader } from "./ThreadPanel";
+import ThreadPanel, { ThreadPanelHeader } from "./ThreadPanel";
+import { ThreadFilterType } from "./ThreadFilterType";
 import MatrixClientContext from "../../contexts/MatrixClientContext";
 import { _t } from "../../languageHandler";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
@@ -46,14 +48,14 @@ describe("ThreadPanel", () => {
     describe("Header", () => {
         it("renders the filter tabs", () => {
             const { asFragment } = render(
-                <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />,
+                <ThreadPanelHeader filterOption={ThreadFilterType.My} setFilterOption={() => undefined} />,
             );
             expect(asFragment()).toMatchSnapshot();
         });
 
         it.each([
-            { filterOption: ThreadFilterType.All, selected: "All threads", unselected: "My threads" },
-            { filterOption: ThreadFilterType.My, selected: "My threads", unselected: "All threads" },
+            { filterOption: ThreadFilterType.My, selected: "My threads", unselected: "Other threads" },
+            { filterOption: ThreadFilterType.Other, selected: "Other threads", unselected: "My threads" },
         ])("marks the $selected tab as selected", ({ filterOption, selected, unselected }) => {
             render(<ThreadPanelHeader filterOption={filterOption} setFilterOption={() => undefined} />);
             expect(screen.getByRole("tablist", { name: "Filter threads" })).toBeInTheDocument();
@@ -63,15 +65,15 @@ describe("ThreadPanel", () => {
 
         it.each([
             {
-                filterOption: ThreadFilterType.My,
-                tabName: "All threads",
-                expectedFilter: ThreadFilterType.All,
+                filterOption: ThreadFilterType.Other,
+                tabName: "My threads",
+                expectedFilter: ThreadFilterType.My,
                 index: 0,
             },
             {
-                filterOption: ThreadFilterType.All,
-                tabName: "My threads",
-                expectedFilter: ThreadFilterType.My,
+                filterOption: ThreadFilterType.My,
+                tabName: "Other threads",
+                expectedFilter: ThreadFilterType.Other,
                 index: 1,
             },
         ])(
@@ -101,7 +103,7 @@ describe("ThreadPanel", () => {
             const { container } = render(
                 <ScopedRoomContextProvider {...roomContextObject}>
                     <MatrixClientContext.Provider value={mockClient}>
-                        <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />
+                        <ThreadPanelHeader filterOption={ThreadFilterType.My} setFilterOption={() => undefined} />
                     </MatrixClientContext.Provider>
                 </ScopedRoomContextProvider>,
             );
@@ -115,7 +117,7 @@ describe("ThreadPanel", () => {
             const mockClient = createTestClient();
             const { container } = render(
                 <MatrixClientContext.Provider value={mockClient}>
-                    <ThreadPanelHeader filterOption={ThreadFilterType.All} setFilterOption={() => undefined} />
+                    <ThreadPanelHeader filterOption={ThreadFilterType.My} setFilterOption={() => undefined} />
                 </MatrixClientContext.Provider>,
             );
             fireEvent.click(getByRole(container, "button", { name: "Mark all as read" }));
@@ -169,7 +171,7 @@ describe("ThreadPanel", () => {
         });
 
         function toggleThreadFilter(container: HTMLElement, newFilter: ThreadFilterType) {
-            const name = newFilter === ThreadFilterType.My ? "My threads" : "All threads";
+            const name = newFilter === ThreadFilterType.My ? "My threads" : "Other threads";
             fireEvent.click(getByRole(container, "tab", { name }));
         }
 
@@ -192,7 +194,7 @@ describe("ThreadPanel", () => {
                 room,
                 client: mockClient,
                 authorId: SENDER,
-                participantUserIds: [mockClient.getUserId()!],
+                participantUserIds: [SENDER],
             });
 
             const mixedThread = mkThread({
@@ -225,16 +227,7 @@ describe("ThreadPanel", () => {
                 <TestThreadPanel />,
                 clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
             );
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
-            await waitFor(() => {
-                const events = findEvents(renderResult.container);
-                expect(events).toHaveLength(3);
-                expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
-                expect(events[1]).toEqual(toEventData(mixedThread.rootEvent));
-                expect(events[2]).toEqual(toEventData(ownThread.rootEvent));
-            });
-            await waitFor(() => expect(getByRole(renderResult.container, "tablist")).toBeInTheDocument());
-            toggleThreadFilter(renderResult.container, ThreadFilterType.My);
+            // "My threads" is shown by default
             await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
             await waitFor(() => {
                 const events = findEvents(renderResult.container);
@@ -242,14 +235,18 @@ describe("ThreadPanel", () => {
                 expect(events[0]).toEqual(toEventData(mixedThread.rootEvent));
                 expect(events[1]).toEqual(toEventData(ownThread.rootEvent));
             });
-            toggleThreadFilter(renderResult.container, ThreadFilterType.All);
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
+            toggleThreadFilter(renderResult.container, ThreadFilterType.Other);
             await waitFor(() => {
                 const events = findEvents(renderResult.container);
-                expect(events).toHaveLength(3);
+                expect(events).toHaveLength(1);
                 expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
-                expect(events[1]).toEqual(toEventData(mixedThread.rootEvent));
-                expect(events[2]).toEqual(toEventData(ownThread.rootEvent));
+            });
+            toggleThreadFilter(renderResult.container, ThreadFilterType.My);
+            await waitFor(() => {
+                const events = findEvents(renderResult.container);
+                expect(events).toHaveLength(2);
+                expect(events[0]).toEqual(toEventData(mixedThread.rootEvent));
+                expect(events[1]).toEqual(toEventData(ownThread.rootEvent));
             });
         });
 
@@ -258,7 +255,7 @@ describe("ThreadPanel", () => {
                 room,
                 client: mockClient,
                 authorId: SENDER,
-                participantUserIds: [mockClient.getUserId()!],
+                participantUserIds: [SENDER],
             });
 
             const threadRoots = [otherThread.rootEvent];
@@ -273,26 +270,41 @@ describe("ThreadPanel", () => {
                 <TestThreadPanel />,
                 clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
             );
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
-            await waitFor(() => {
-                const events = findEvents(renderResult.container);
-                expect(events).toHaveLength(1);
-                expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
-            });
             await waitFor(() => expect(getByRole(renderResult.container, "tablist")).toBeInTheDocument());
-            toggleThreadFilter(renderResult.container, ThreadFilterType.My);
             await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
-            await waitFor(() => {
-                const events = findEvents(renderResult.container);
-                expect(events).toHaveLength(0);
-            });
-            toggleThreadFilter(renderResult.container, ThreadFilterType.All);
-            await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
+            await waitFor(() => expect(findEvents(renderResult.container)).toHaveLength(0));
+            toggleThreadFilter(renderResult.container, ThreadFilterType.Other);
             await waitFor(() => {
                 const events = findEvents(renderResult.container);
                 expect(events).toHaveLength(1);
                 expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
             });
+        });
+
+        it("removes a thread from Other threads once the user takes part in it", async () => {
+            const otherThread = mkThread({
+                room,
+                client: mockClient,
+                authorId: SENDER,
+                participantUserIds: [SENDER],
+            });
+            vi.spyOn(mockClient, "fetchRoomEvent").mockResolvedValue(otherThread.rootEvent.event);
+            const [allThreads] = room.threadsTimelineSets;
+            allThreads!.addLiveEvent(otherThread.rootEvent, { addToState: true });
+
+            const { container } = render(
+                <TestThreadPanel />,
+                clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
+            );
+            await waitFor(() => expect(getByRole(container, "tablist")).toBeInTheDocument());
+            toggleThreadFilter(container, ThreadFilterType.Other);
+            await waitFor(() => expect(findEvents(container)).toHaveLength(1));
+
+            // Replying in the thread marks it as participated before the thread emits its update
+            vi.spyOn(otherThread.thread, "hasCurrentUserParticipated", "get").mockReturnValue(true);
+            otherThread.thread.emit(ThreadEvent.Update, otherThread.thread);
+
+            await waitFor(() => expect(findEvents(container)).toHaveLength(0));
         });
 
         it("shows a spinner rather than the empty state while threads are loading", () => {
@@ -309,7 +321,7 @@ describe("ThreadPanel", () => {
             render(<TestThreadPanel />, clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance));
             await waitFor(() => expect(screen.getByText(_t("threads|empty_title"))).toBeInTheDocument());
             expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-            expect(screen.queryByRole("tabpanel", { name: "All threads" })).not.toBeInTheDocument();
+            expect(screen.queryByRole("tabpanel", { name: "My threads" })).not.toBeInTheDocument();
         });
 
         it("labels the thread list with the selected tab", async () => {
@@ -323,9 +335,9 @@ describe("ThreadPanel", () => {
             room.threadsTimelineSets[0]!.addLiveEvent(thread.rootEvent, { addToState: true });
 
             render(<TestThreadPanel />, clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance));
-            await waitFor(() => expect(screen.getByRole("tabpanel", { name: "All threads" })).toBeInTheDocument());
-            fireEvent.click(screen.getByRole("tab", { name: "My threads" }));
             await waitFor(() => expect(screen.getByRole("tabpanel", { name: "My threads" })).toBeInTheDocument());
+            fireEvent.click(screen.getByRole("tab", { name: "Other threads" }));
+            await waitFor(() => expect(screen.getByRole("tabpanel", { name: "Other threads" })).toBeInTheDocument());
         });
     });
 });

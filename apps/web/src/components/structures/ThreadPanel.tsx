@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { type EventTimelineSet, type Room, Thread } from "matrix-js-sdk/src/matrix";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { type EventTimelineSet, type MatrixEvent, type Room, Thread } from "matrix-js-sdk/src/matrix";
 import { IconButton, NavBar, NavItem, Tooltip } from "@vector-im/compound-web";
 import { logger } from "matrix-js-sdk/src/logger";
 import { MarkThreadsAsReadIcon, ThreadsIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -27,6 +27,7 @@ import { clearRoomNotification } from "../../utils/notifications";
 import EmptyState from "../views/right_panel/EmptyState";
 import { ScopedRoomContextProvider, useScopedRoomContext } from "../../contexts/ScopedRoomContext.tsx";
 import { EventPresentationContextProvider } from "../../utils/EventPresentationContextProvider";
+import { ThreadFilterType } from "./ThreadFilterType";
 
 interface IProps {
     roomId: string;
@@ -35,15 +36,10 @@ interface IProps {
     permalinkCreator: RoomPermalinkCreator;
 }
 
-export enum ThreadFilterType {
-    My,
-    All,
-}
-
 const THREAD_PANEL_TABPANEL_ID = "mx_ThreadPanel_panel";
 const THREAD_PANEL_TAB_IDS: Record<ThreadFilterType, string> = {
-    [ThreadFilterType.All]: "mx_ThreadPanel_tab_all",
     [ThreadFilterType.My]: "mx_ThreadPanel_tab_my",
+    [ThreadFilterType.Other]: "mx_ThreadPanel_tab_other",
 };
 
 export const ThreadPanelHeader: React.FC<{
@@ -77,26 +73,26 @@ export const ThreadPanelHeader: React.FC<{
             <NavBar className="mx_ThreadPanel_tabs" role="tablist" aria-label={_t("threads|filter_tabs_label")}>
                 {/* The filter tabs reuse the old dropdown's analytics name; the index tells them apart */}
                 <NavItem
-                    id={THREAD_PANEL_TAB_IDS[ThreadFilterType.All]}
-                    aria-controls={THREAD_PANEL_TABPANEL_ID}
-                    active={filterOption === ThreadFilterType.All}
-                    onClick={(ev: React.MouseEvent<HTMLButtonElement>) => {
-                        setFilterOption(ThreadFilterType.All);
-                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 0);
-                    }}
-                >
-                    {_t("threads|all_threads")}
-                </NavItem>
-                <NavItem
                     id={THREAD_PANEL_TAB_IDS[ThreadFilterType.My]}
                     aria-controls={THREAD_PANEL_TABPANEL_ID}
                     active={filterOption === ThreadFilterType.My}
                     onClick={(ev: React.MouseEvent<HTMLButtonElement>) => {
                         setFilterOption(ThreadFilterType.My);
-                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 1);
+                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 0);
                     }}
                 >
                     {_t("threads|my_threads")}
+                </NavItem>
+                <NavItem
+                    id={THREAD_PANEL_TAB_IDS[ThreadFilterType.Other]}
+                    aria-controls={THREAD_PANEL_TABPANEL_ID}
+                    active={filterOption === ThreadFilterType.Other}
+                    onClick={(ev: React.MouseEvent<HTMLButtonElement>) => {
+                        setFilterOption(ThreadFilterType.Other);
+                        PosthogTrackers.trackInteraction("WebRightPanelThreadPanelFilterDropdown", ev, 1);
+                    }}
+                >
+                    {_t("threads|other_threads")}
                 </NavItem>
             </NavBar>
             <Tooltip label={_t("threads|mark_all_read")}>
@@ -115,12 +111,18 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
     const card = useRef<HTMLDivElement | null>(null);
     const closeButonRef = useRef<HTMLButtonElement | null>(null);
 
-    const [filterOption, setFilterOption] = useState<ThreadFilterType>(ThreadFilterType.All);
+    const [filterOption, setFilterOption] = useState<ThreadFilterType>(ThreadFilterType.My);
     const [room, setRoom] = useState<Room | null>(null);
     const [narrow, setNarrow] = useState<boolean>(false);
 
+    // There is no server-side list of threads the user did not take part in, so "Other" shows the list
+    // of all threads with the user's threads filtered out.
     const timelineSet: EventTimelineSet | undefined =
         filterOption === ThreadFilterType.My ? room?.threadsTimelineSets[1] : room?.threadsTimelineSets[0];
+    const isOtherThread = useCallback(
+        (rootEvent: MatrixEvent): boolean => !room?.getThread(rootEvent.getId()!)?.hasCurrentUserParticipated,
+        [room],
+    );
     const hasThreads = Boolean(room?.threadsTimelineSets?.[0]?.getLiveTimeline()?.getEvents()?.length);
 
     useEffect(() => {
@@ -129,7 +131,7 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
             ?.createThreadsTimelineSets()
             .then(() => room.fetchRoomThreads())
             .then(() => {
-                setFilterOption(ThreadFilterType.All);
+                setFilterOption(ThreadFilterType.My);
                 setRoom(room);
             });
     }, [mxClient, roomId]);
@@ -178,6 +180,7 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
                                 manageReadMarkers={false} // No RM support in thread's list
                                 sendReadReceiptOnLoad={false} // No RR support in thread's list
                                 timelineSet={timelineSet}
+                                eventFilter={filterOption === ThreadFilterType.Other ? isOtherThread : undefined}
                                 showUrlPreview={false} // No URL previews at the threads list level
                                 empty={
                                     <EmptyState

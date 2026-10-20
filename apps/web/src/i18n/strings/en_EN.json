@@ -3291,7 +3291,6 @@
     },
     "thread_view_back_action_label": "Back to thread",
     "threads": {
-        "all_threads": "All threads",
         "count_of_reply": {
             "one": "%(count)s reply",
             "other": "%(count)s replies"
@@ -3301,7 +3300,8 @@
         "filter_tabs_label": "Filter threads",
         "mark_all_read": "Mark all as read",
         "my_threads": "My threads",
-        "open_thread": "Open thread"
+        "open_thread": "Open thread",
+        "other_threads": "Other threads"
     },
     "threads_activity_centre": {
         "a11y": {

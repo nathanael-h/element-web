@@ -493,6 +493,34 @@ test.describe("Threads", () => {
         },
     );
 
+    test("splits the threads list into My threads and Other threads", async ({ page, app, bot }) => {
+        const roomId = await app.client.createRoom({});
+        await app.client.inviteUser(roomId, bot.credentials!.userId);
+        await bot.joinRoom(roomId);
+
+        // The bot starts a thread the user takes no part in, and replies in a thread on the user's message
+        const { event_id: botRootId } = await bot.sendMessage(roomId, "Topic from the bot");
+        await bot.sendMessage(roomId, "Bot talking to itself", botRootId);
+        const { event_id: userRootId } = await app.client.sendMessage(roomId, "Topic from the user");
+        await bot.sendMessage(roomId, "Bot answering the user", userRootId);
+
+        await page.goto("/#/room/" + roomId);
+        await page.locator(".mx_RoomHeader").getByRole("button", { name: "Threads" }).click();
+        const threadPanel = page.locator(".mx_ThreadPanel");
+
+        // "My threads" is shown by default and only lists the thread the user started
+        await expect(threadPanel.getByRole("tab", { name: "My threads", selected: true })).toBeVisible();
+        const myThreads = threadPanel.getByRole("tabpanel", { name: "My threads" });
+        await expect(myThreads.getByText("Topic from the user")).toBeVisible();
+        await expect(myThreads.getByText("Topic from the bot")).not.toBeVisible();
+
+        await threadPanel.getByRole("tab", { name: "Other threads" }).click();
+        const otherThreads = threadPanel.getByRole("tabpanel", { name: "Other threads" });
+        await expect(otherThreads.getByText("Topic from the bot")).toBeVisible();
+        await expect(otherThreads.getByText("Topic from the user")).not.toBeVisible();
+
+    });
+
     test("right panel behaves correctly", async ({ page, app, user }) => {
         // Create room
         const roomId = await app.client.createRoom({});
@@ -618,7 +646,7 @@ test.describe("Threads", () => {
         const pinnedMessageBanner = page.getByTestId("pinned-message-banner");
         await expect(pinnedMessageBanner).toBeVisible();
 
-        // Reply in a thread, so the Threads panel header (Mark all as read + Show filter) is shown
+        // Reply in a thread, so the Threads panel header (filter tabs + Mark all as read) is shown
         const messageTile = roomViewBody
             .locator(".mx_EventTile[data-scroll-tokens]")
             .filter({ hasText: "Hello Mr. Bot" });

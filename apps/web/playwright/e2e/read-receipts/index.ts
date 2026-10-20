@@ -565,7 +565,18 @@ class Helpers {
 
     private async getThreadListTile(rootMessage: string) {
         await this.openThreadList();
-        return this.page.locator(".mx_ThreadPanel li", { hasText: rootMessage });
+        const threadPanel = this.page.locator(".mx_ThreadPanel");
+        const tile = threadPanel.locator("li", { hasText: rootMessage });
+
+        // The thread is under "My threads" or "Other threads" depending on whether the user took part
+        // in it, so switch tabs until it shows up.
+        await expect(async () => {
+            if (await tile.isVisible()) return;
+            await threadPanel.getByRole("tab", { selected: false }).click();
+            await expect(tile).toBeVisible({ timeout: 1000 });
+        }).toPass();
+
+        return tile;
     }
 
     /**
