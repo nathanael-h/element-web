@@ -115,6 +115,10 @@ interface IProps {
     // placeholder to use if the timeline is empty
     empty?: ReactNode;
 
+    // Only show the events this returns true for. Hidden events still count for pagination, so the
+    // panel keeps paginating until it has enough events to show.
+    eventFilter?(event: MatrixEvent): boolean;
+
     // whether to show reactions for an event
     showReactions?: boolean;
 
@@ -796,6 +800,11 @@ class TimelinePanel extends React.Component<IProps, IState> {
         const tile = this.messagePanel.current?.getTileForEventId(thread.id);
         if (tile) {
             tile.forceUpdate();
+        }
+
+        // The update can change whether the thread root passes the filter, e.g. once the user replies
+        if (this.props.eventFilter) {
+            this.setState(this.getEvents());
         }
     };
 
@@ -1598,7 +1607,9 @@ class TimelinePanel extends React.Component<IProps, IState> {
 
     // get the list of events from the timeline window and the pending event list
     private getEvents(): Pick<IState, "events" | "liveEvents"> {
-        const events = this.timelineWindow!.getEvents();
+        const { eventFilter } = this.props;
+        const windowEvents = this.timelineWindow!.getEvents();
+        const events = eventFilter ? windowEvents.filter(eventFilter) : windowEvents;
 
         // We want the last event to be decrypted first
         const client = MatrixClientPeg.safeGet();

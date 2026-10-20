@@ -513,6 +513,29 @@ describe("TimelinePanel", () => {
         });
     });
 
+    describe("eventFilter", () => {
+        it("only shows the events it accepts", async () => {
+            const [client, room, events] = setupTestData();
+            const { container } = render(
+                <TimelinePanel {...getProps(room, events)} eventFilter={(event) => event === events[1]} />,
+                clientAndSDKContextRenderOptions(client, sdkContext),
+            );
+
+            await waitFor(() => expectEvents(container, [events[1]]));
+        });
+
+        it("shows the empty placeholder when it rejects every event", async () => {
+            const [client, room, events] = setupTestData();
+            const { container } = render(
+                <TimelinePanel {...getProps(room, events)} eventFilter={() => false} empty="Nothing here" />,
+                clientAndSDKContextRenderOptions(client, sdkContext),
+            );
+
+            await waitFor(() => expect(container).toHaveTextContent("Nothing here"));
+            expectEvents(container, []);
+        });
+    });
+
     it("only re-renders when sync changes forward pagination state", async () => {
         const [client, room, events] = setupTestData();
         let timelinePanel: TimelinePanel | null = null;
