@@ -273,12 +273,37 @@ describe("ThreadPanel", () => {
             await waitFor(() => expect(getByRole(renderResult.container, "tablist")).toBeInTheDocument());
             await waitFor(() => expect(renderResult.container.querySelector(".mx_AutoHideScrollbar")).toBeFalsy());
             await waitFor(() => expect(findEvents(renderResult.container)).toHaveLength(0));
+            expect(screen.getByText(_t("threads|empty_my_threads_title"))).toBeInTheDocument();
             toggleThreadFilter(renderResult.container, ThreadFilterType.Other);
             await waitFor(() => {
                 const events = findEvents(renderResult.container);
                 expect(events).toHaveLength(1);
                 expect(events[0]).toEqual(toEventData(otherThread.rootEvent));
             });
+        });
+
+        it("shows an Other threads empty state when the user took part in every thread", async () => {
+            const ownThread = mkThread({
+                room,
+                client: mockClient,
+                authorId: mockClient.getUserId()!,
+                participantUserIds: [mockClient.getUserId()!],
+            });
+            vi.spyOn(mockClient, "fetchRoomEvent").mockResolvedValue(ownThread.rootEvent.event);
+            const [allThreads, myThreads] = room.threadsTimelineSets;
+            allThreads!.addLiveEvent(ownThread.rootEvent, { addToState: true });
+            myThreads!.addLiveEvent(ownThread.rootEvent, { addToState: true });
+
+            const { container } = render(
+                <TestThreadPanel />,
+                clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
+            );
+            await waitFor(() => expect(findEvents(container)).toHaveLength(1));
+            toggleThreadFilter(container, ThreadFilterType.Other);
+
+            await waitFor(() => expect(screen.getByText(_t("threads|empty_other_threads_title"))).toBeInTheDocument());
+            expect(screen.getByText(_t("threads|empty_other_threads_description"))).toBeInTheDocument();
+            expect(findEvents(container)).toHaveLength(0);
         });
 
         it("removes a thread from Other threads once the user takes part in it", async () => {

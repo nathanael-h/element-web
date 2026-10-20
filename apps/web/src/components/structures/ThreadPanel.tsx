@@ -104,6 +104,27 @@ export const ThreadPanelHeader: React.FC<{
     );
 };
 
+/**
+ * The empty state text for the thread list: an introduction to threads when the room has none,
+ * otherwise a message for the selected tab.
+ */
+function getEmptyStateText(
+    hasThreads: boolean,
+    filterOption: ThreadFilterType,
+): { title: string; description: string } {
+    const replyInThreadHint = _t("threads|empty_description", { replyInThread: _t("action|reply_in_thread") });
+    if (!hasThreads) {
+        return { title: _t("threads|empty_title"), description: replyInThreadHint };
+    }
+    if (filterOption === ThreadFilterType.My) {
+        return { title: _t("threads|empty_my_threads_title"), description: replyInThreadHint };
+    }
+    return {
+        title: _t("threads|empty_other_threads_title"),
+        description: _t("threads|empty_other_threads_description"),
+    };
+}
+
 const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) => {
     const mxClient = useContext(MatrixClientContext);
     const roomContext = useContext(RoomContext);
@@ -183,13 +204,7 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
                                 eventFilter={filterOption === ThreadFilterType.Other ? isOtherThread : undefined}
                                 showUrlPreview={false} // No URL previews at the threads list level
                                 empty={
-                                    <EmptyState
-                                        Icon={ThreadsIcon}
-                                        title={_t("threads|empty_title")}
-                                        description={_t("threads|empty_description", {
-                                            replyInThread: _t("action|reply_in_thread"),
-                                        })}
-                                    />
+                                    <EmptyState Icon={ThreadsIcon} {...getEmptyStateText(hasThreads, filterOption)} />
                                 }
                                 alwaysShowTimestamps={true}
                                 layout={Layout.Group}

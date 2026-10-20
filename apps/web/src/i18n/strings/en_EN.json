@@ -3296,6 +3296,9 @@
             "other": "%(count)s replies"
         },
         "empty_description": "Use “%(replyInThread)s” when hovering over a message.",
+        "empty_my_threads_title": "You haven't taken part in any threads yet",
+        "empty_other_threads_description": "Threads you haven't taken part in will show up here.",
+        "empty_other_threads_title": "No threads from other people",
         "empty_title": "Threads help keep your conversations on-topic and easy to track.",
         "filter_tabs_label": "Filter threads",
         "mark_all_read": "Mark all as read",
