@@ -10,7 +10,7 @@ Please see LICENSE files in the repository root for full details.
 
 import { vi, describe, it, expect, beforeEach, afterEach, type MockedObject } from "vitest";
 import React from "react";
-import { render, screen, waitFor } from "test-utils-rtl";
+import { act, render, screen, waitFor } from "test-utils-rtl";
 import { EventType, MatrixEvent, type MatrixClient, MsgType } from "matrix-js-sdk/src/matrix";
 import { stubClient, wrapInMatrixClientContext, mkRoom, wrapInSdkContext, TestSDKContext } from "test-utils";
 
@@ -27,6 +27,19 @@ import RightPanelStore from "../../stores/right-panel/RightPanelStore";
 import { UPDATE_EVENT } from "../../stores/AsyncStore";
 import { WidgetLayoutStore } from "../../stores/widgets/WidgetLayoutStore";
 import { RoomPermalinkCreator } from "../../utils/permalinks/Permalinks";
+import { ThreadFilterType } from "./ThreadFilterType";
+import type ThreadPanel from "./ThreadPanel";
+
+// The thread panel and thread view need a room full of threads; these tests only care about which card
+// is shown and the props the thread panel is given
+const { threadPanelSpy } = vi.hoisted(() => ({ threadPanelSpy: vi.fn() }));
+vi.mock("./ThreadPanel", () => ({
+    default: (props: React.ComponentProps<typeof ThreadPanel>) => {
+        threadPanelSpy(props);
+        return <div data-testid="thread-panel" />;
+    },
+}));
+vi.mock("./ThreadView", () => ({ default: () => <div data-testid="thread-view" /> }));
 
 const RightPanelBase = wrapInMatrixClientContext(_RightPanel);
 
@@ -151,6 +164,45 @@ describe("RightPanel", () => {
         // the expected room title
         expect(container.getElementsByClassName("mx_MemberListView")).toHaveLength(0);
         expect(screen.getByRole("heading", { name: "r2" })).toBeInTheDocument();
+    });
+
+    it("restores the selected thread list tab when going back from a thread", async () => {
+        const room = mkRoom(cli, "r1");
+        cli.getRoom.mockImplementation((roomId) => (roomId === "r1" ? room : null));
+        await spinUpStores();
+
+        render(
+            <RightPanel
+                room={room}
+                resizeNotifier={resizeNotifier}
+                permalinkCreator={new RoomPermalinkCreator(room, room.roomId)}
+            />,
+        );
+        const rpsUpdated = waitForRpsUpdate();
+        dis.dispatch({ action: Action.ViewRoom, room_id: "r1" });
+        await rpsUpdated;
+        act(() => RightPanelStore.instance.setCard({ phase: RightPanelPhases.ThreadPanel }, true, "r1"));
+        const lastThreadPanelProps = (): React.ComponentProps<typeof ThreadPanel> => threadPanelSpy.mock.lastCall![0];
+        expect(lastThreadPanelProps().filterOption).toBeUndefined();
+
+        // The user selects "Other threads", opens a thread, then goes back
+        act(() => lastThreadPanelProps().onFilterOptionChange!(ThreadFilterType.Other));
+        expect(lastThreadPanelProps().filterOption).toBe(ThreadFilterType.Other);
+        const threadHeadEvent = new MatrixEvent({ type: EventType.RoomMessage, room_id: "r1", event_id: "$root" });
+        act(() =>
+            RightPanelStore.instance.pushCard(
+                { phase: RightPanelPhases.ThreadView, state: { threadHeadEvent } },
+                true,
+                "r1",
+            ),
+        );
+        expect(screen.getByTestId("thread-view")).toBeInTheDocument();
+        expect(screen.queryByTestId("thread-panel")).not.toBeInTheDocument();
+        threadPanelSpy.mockClear();
+        act(() => RightPanelStore.instance.popCard("r1"));
+
+        expect(screen.getByTestId("thread-panel")).toBeInTheDocument();
+        expect(lastThreadPanelProps().filterOption).toBe(ThreadFilterType.Other);
     });
 
     it("renders the document viewer card, named after the file, for a PDF", async () => {

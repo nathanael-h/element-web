@@ -10,6 +10,7 @@ import { type MatrixEvent, type Room, type RoomMember, type User } from "matrix-
 import { type VerificationRequest } from "matrix-js-sdk/src/crypto-api";
 
 import { type RightPanelPhases } from "./RightPanelStorePhases";
+import { type ThreadFilterType } from "../../components/structures/ThreadFilterType";
 
 export interface IRightPanelCardState {
     member?: RoomMember | User;
@@ -23,6 +24,8 @@ export interface IRightPanelCardState {
     initialEvent?: MatrixEvent;
     isInitialEventHighlighted?: boolean;
     initialEventScrollIntoView?: boolean;
+    // thread list: the selected tab, so going back from a thread returns to it
+    threadListFilter?: ThreadFilterType;
     // room summary
     focusRoomSearch?: boolean;
     // document viewer: the m.file event whose attachment is being read
@@ -40,6 +43,7 @@ export interface IRightPanelCardStateStored {
     initialEventId?: string;
     isInitialEventHighlighted?: boolean;
     initialEventScrollIntoView?: boolean;
+    threadListFilter?: ThreadFilterType;
     // document viewer
     documentViewerEventId?: string;
 }
@@ -82,6 +86,7 @@ export function convertCardToStore(panelState: IRightPanelCard): IRightPanelCard
         widgetId: state.widgetId,
         isInitialEventHighlighted: state.isInitialEventHighlighted,
         initialEventScrollIntoView: state.initialEventScrollIntoView,
+        threadListFilter: state.threadListFilter,
         threadHeadEventId: !!state?.threadHeadEvent?.getId() ? state.threadHeadEvent.getId() : undefined,
         memberInfoEventId: !!state?.memberInfoEvent?.getId() ? state.memberInfoEvent.getId() : undefined,
         initialEventId: !!state?.initialEvent?.getId() ? state.initialEvent.getId() : undefined,
@@ -98,6 +103,7 @@ function convertStoreToCard(panelStateStore: IRightPanelCardStored, room: Room):
         widgetId: stateStored.widgetId,
         isInitialEventHighlighted: stateStored.isInitialEventHighlighted,
         initialEventScrollIntoView: stateStored.initialEventScrollIntoView,
+        threadListFilter: stateStored.threadListFilter,
         threadHeadEvent: !!stateStored?.threadHeadEventId
             ? room.findEventById(stateStored.threadHeadEventId)
             : undefined,

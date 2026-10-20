@@ -34,6 +34,10 @@ interface IProps {
     onClose: () => void;
     resizeNotifier: ResizeNotifier;
     permalinkCreator: RoomPermalinkCreator;
+    /** The selected tab. If not given, the panel keeps track of it itself. */
+    filterOption?: ThreadFilterType;
+    /** Called when the user selects a tab. */
+    onFilterOptionChange?: (filterOption: ThreadFilterType) => void;
 }
 
 const THREAD_PANEL_TABPANEL_ID = "mx_ThreadPanel_panel";
@@ -125,14 +129,23 @@ function getEmptyStateText(
     };
 }
 
-const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) => {
+const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator, ...props }) => {
     const mxClient = useContext(MatrixClientContext);
     const roomContext = useContext(RoomContext);
     const timelinePanel = useRef<TimelinePanel | null>(null);
     const card = useRef<HTMLDivElement | null>(null);
     const closeButonRef = useRef<HTMLButtonElement | null>(null);
 
-    const [filterOption, setFilterOption] = useState<ThreadFilterType>(ThreadFilterType.My);
+    const [localFilterOption, setLocalFilterOption] = useState<ThreadFilterType>(ThreadFilterType.My);
+    const filterOption = props.filterOption ?? localFilterOption;
+    const { onFilterOptionChange } = props;
+    const setFilterOption = useCallback(
+        (newFilterOption: ThreadFilterType): void => {
+            setLocalFilterOption(newFilterOption);
+            onFilterOptionChange?.(newFilterOption);
+        },
+        [onFilterOptionChange],
+    );
     const [room, setRoom] = useState<Room | null>(null);
     const [narrow, setNarrow] = useState<boolean>(false);
 
@@ -152,7 +165,7 @@ const ThreadPanel: React.FC<IProps> = ({ roomId, onClose, permalinkCreator }) =>
             ?.createThreadsTimelineSets()
             .then(() => room.fetchRoomThreads())
             .then(() => {
-                setFilterOption(ThreadFilterType.My);
+                setLocalFilterOption(ThreadFilterType.My);
                 setRoom(room);
             });
     }, [mxClient, roomId]);

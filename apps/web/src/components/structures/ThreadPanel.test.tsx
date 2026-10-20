@@ -282,6 +282,40 @@ describe("ThreadPanel", () => {
             });
         });
 
+        it("shows the tab it is given and reports when the user picks another", async () => {
+            const thread = mkThread({
+                room,
+                client: mockClient,
+                authorId: SENDER,
+                participantUserIds: [SENDER],
+            });
+            vi.spyOn(mockClient, "fetchRoomEvent").mockResolvedValue(thread.rootEvent.event);
+            room.threadsTimelineSets[0]!.addLiveEvent(thread.rootEvent, { addToState: true });
+            const onFilterOptionChange = vi.fn();
+
+            render(
+                <MatrixClientContext.Provider value={mockClient}>
+                    <ScopedRoomContextProvider {...getRoomContext(room, {})}>
+                        <ThreadPanel
+                            roomId={ROOM_ID}
+                            onClose={vi.fn()}
+                            resizeNotifier={new ResizeNotifier()}
+                            permalinkCreator={new RoomPermalinkCreator(room)}
+                            filterOption={ThreadFilterType.Other}
+                            onFilterOptionChange={onFilterOptionChange}
+                        />
+                    </ScopedRoomContextProvider>
+                </MatrixClientContext.Provider>,
+                clientAndSDKContextRenderOptions(createTestClient(), SDKContextClass.instance),
+            );
+
+            await waitFor(() =>
+                expect(screen.getByRole("tab", { name: "Other threads", selected: true })).toBeInTheDocument(),
+            );
+            fireEvent.click(screen.getByRole("tab", { name: "My threads" }));
+            expect(onFilterOptionChange).toHaveBeenCalledWith(ThreadFilterType.My);
+        });
+
         it("shows an Other threads empty state when the user took part in every thread", async () => {
             const ownThread = mkThread({
                 room,

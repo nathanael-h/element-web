@@ -22,6 +22,7 @@ import ThirdPartyMemberInfo from "../views/rooms/ThirdPartyMemberInfo";
 import FilePanel from "./FilePanel";
 import ThreadView from "./ThreadView";
 import ThreadPanel from "./ThreadPanel";
+import { type ThreadFilterType } from "./ThreadFilterType";
 import NotificationPanel from "./NotificationPanel";
 import type ResizeNotifier from "../../utils/ResizeNotifier";
 import { PinnedMessagesCard } from "../views/right_panel/PinnedMessagesCard";
@@ -122,6 +123,15 @@ export default class RightPanel extends React.Component<Props, IState> {
 
     private onRightPanelStoreUpdate = (): void => {
         this.setState({ ...(RightPanel.getDerivedStateFromProps(this.props) as IState) });
+    };
+
+    // Keep the selected thread list tab in the card state, so it is restored when going back from a thread
+    private onThreadListFilterChange = (threadListFilter: ThreadFilterType): void => {
+        RightPanelStore.instance.setCard(
+            { phase: RightPanelPhases.ThreadPanel, state: { threadListFilter } },
+            true,
+            this.props.room?.roomId,
+        );
     };
 
     private onClose = (): void => {
@@ -247,6 +257,8 @@ export default class RightPanel extends React.Component<Props, IState> {
                             resizeNotifier={this.props.resizeNotifier}
                             onClose={this.onClose}
                             permalinkCreator={this.props.permalinkCreator}
+                            filterOption={cardState?.threadListFilter}
+                            onFilterOptionChange={this.onThreadListFilterChange}
                         />
                     );
                 }

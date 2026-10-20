@@ -519,6 +519,12 @@ test.describe("Threads", () => {
         await expect(otherThreads.getByText("Topic from the bot")).toBeVisible();
         await expect(otherThreads.getByText("Topic from the user")).not.toBeVisible();
 
+        // Opening a thread and going back returns to the tab the user was on
+        await otherThreads.getByText("Topic from the bot").click();
+        await expect(page.locator(".mx_ThreadView_timelinePanelWrapper")).toHaveCount(1);
+        await page.getByTestId("base-card-back-button").click();
+        await expect(threadPanel.getByRole("tab", { name: "Other threads", selected: true })).toBeVisible();
+        await expect(otherThreads.getByText("Topic from the bot")).toBeVisible();
     });
 
     test("right panel behaves correctly", async ({ page, app, user }) => {
