@@ -10,9 +10,8 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { type EventTimelineSet, type Room, Thread } from "matrix-js-sdk/src/matrix";
 import { IconButton, NavBar, NavItem, Tooltip } from "@vector-im/compound-web";
 import { logger } from "matrix-js-sdk/src/logger";
-import { ThreadsIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import { MarkThreadsAsReadIcon, ThreadsIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
-import MarkAllThreadsReadIcon from "../../../res/img/element-icons/check-all.svg?react";
 import BaseCard from "../views/right_panel/BaseCard";
 import type ResizeNotifier from "../../utils/ResizeNotifier";
 import MatrixClientContext, { useMatrixClientContext } from "../../contexts/MatrixClientContext";
@@ -102,7 +101,7 @@ export const ThreadPanelHeader: React.FC<{
             </NavBar>
             <Tooltip label={_t("threads|mark_all_read")}>
                 <IconButton onClick={onMarkAllThreadsReadClick} size="28px" className="mx_ThreadPanel_markAllRead">
-                    <MarkAllThreadsReadIcon height={20} width={20} />
+                    <MarkThreadsAsReadIcon height={20} width={20} />
                 </IconButton>
             </Tooltip>
         </div>
